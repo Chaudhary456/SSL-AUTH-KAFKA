@@ -99,93 +99,97 @@ flowchart TD;
 
 # Commands to generate SSL Certificates
 ## First generate Certificate Authority(CA), Truststore and Keystore
-### 1. Generate CA
+Generate CA
 ```bash
 openssl req -new -x509 -keyout ca-key -out ca-cert -days 3650
 ```
 <br/>
 
-### 2. Create Truststore
+Create Truststore
 ```bash 
 keytool -keystore kafka.server.truststore.jks -alias ca-cert -import -file ca-cert
 ```
 <br/>
 
-### 3. Create Keystore
-### `NOTE:` When you are asked to enter `FULL NAME` you must enter `hostname/dns`(in this example 'localhost').
+Create Keystore
+`NOTE:` When you are asked to enter `FULL NAME` you must enter `hostname/dns`(in this example 'localhost').
 ```bash 
 keytool -keystore kafka.server.keystore.jks -alias server -validity 3650 -genkey -keyalg RSA -ext SAN=dns:localhost
 ```
 <br/>
 
-### 4. Create certificate signing request (CSR)
+Create certificate signing request (CSR)
 ```bash 
 keytool -keystore kafka.server.keystore.jks -alias server -certreq -file ca-request-server
 ```
 <br/>
 
-### 5. Sign the CSR
+Sign the CSR
 ```bash 
 openssl x509 -req -CA ca-cert -CAkey ca-key -in ca-request-server -out ca-signed-server -days 3650 -CAcreateserial
 ```
 <br/>
 
-### 6. Import the CA into Keystore
+Import the CA into Keystore
 ```bash 
 keytool -keystore kafka.server.keystore.jks -alias ca-cert -import -file ca-cert
 ```
 <br/>
 
-### 7. Import the signed certificate from step 5 into Keystore
+Import the signed certificate from step 5 into Keystore
 ```bash 
 keytool -keystore kafka.server.keystore.jks -alias server -import -file ca-signed-server
 ```
 <br/>
 
-### `To generate keystore and truststore for client repeate above steps from 2 - 7, just replace 'server' with 'client'`.
+`To generate keystore and truststore for client repeate above steps from 2-7, just replace 'server' with 'client'`.
 <br/>
 
 
 ## Secondly create PEM files.
-### Generally we don't need PEM files for SSL authentication, when we manually produce message from terminal using producer.
-### Now that you have already generated the SSL/TLS certificates and key stores using your CA, you can use OpenSSL to extract the required files from the CA and SSL/TLS certificates:
-### 1. Extract the public key and certificate of the CA that signed the SSL/TLS certificates to a CARoot.pem file:
+Generally we don't need PEM files for SSL authentication, when we manually produce message from terminal using producer.
+Now that you have already generated the SSL/TLS certificates and key stores using your CA, you can use OpenSSL to extract the required files from the CA and SSL/TLS certificates:
+<br/>
+
+Extract the public key and certificate of the CA that signed the SSL/TLS certificates to a CARoot.pem file:
 ```bash
 openssl x509 -in ca-cert -out CARoot.pem -outform PEM
 ```
-### This will extract the public key and certificate of the CA that signed the SSL/TLS certificates to a CARoot.pem file.
+This will extract the public key and certificate of the CA that signed the SSL/TLS certificates to a CARoot.pem file.
+
 <br/>
 
-### 2. Extract the public key and certificate of the SSL/TLS certificate to a certificate_root.pem file:
+Extract the public key and certificate of the SSL/TLS certificate to a certificate_root.pem file:
 ```bash
 openssl x509 -in ca-signed-server -out certificate_root.pem -outform PEM
 ```
-### This will extract the public key and certificate of the server SSL/TLS certificate to a certificate_root.pem file. If you have multiple SSL/TLS certificates, you should repeat this step for each certificate.
+This will extract the public key and certificate of the server SSL/TLS certificate to a certificate_root.pem file. If you have multiple SSL/TLS certificates, you should repeat this step for each certificate.
+
 <br/>
 
-### 3. Export the private key and certificate from the keystore to a PKCS12 file:
+Export the private key and certificate from the keystore to a PKCS12 file:
 ```bash 
 keytool -importkeystore -srckeystore kafka.server.keystore.jks -destkeystore kafka.server.keystore.p12 -srcstoretype jks -deststoretype pkcs12
 ```
 <br/>
 
-### 4. Extract the private key from the PKCS12 file to a key_root.pem file:
+Extract the private key from the PKCS12 file to a key_root.pem file:
 ```bash 
 openssl pkcs12 -in kafka.server.keystore.p12 -nocerts -nodes -out key_root.pem
 ```
-### `NOTE`: 
-### A direct way to crete key_root.pem could be this in some articles:
+`NOTE`: 
+A direct way to crete key_root.pem could be this in some articles:
 ```bash
 openssl pkcs12 -in kafka.server.keystore.jks -nocerts -nodes -out key_root.pem
 ```
-### This will extract the private key of the server SSL/TLS certificate to a key_root.pem file. 
+This will extract the private key of the server SSL/TLS certificate to a key_root.pem file. 
 <br/>
 
-### But this could give you error like:
+But this could give you error like:
 ```properties
 "139662461437760:error:0D07207B:asn1 encoding routines:ASN1_get_object:header too long:crypto/asn1/asn1_lib.c:101:"
 ```
-### So better use the steps 3 and 4 to genaret key_root.pem.
+So better use the steps 3 and 4 to genaret key_root.pem.
 <br/>
 
 ## To Open and Check your Keystore and Truststore certificates.
@@ -195,9 +199,9 @@ keytool -list -v -keystore kafka.server.keystore.jks
 <br/>
 
 ## Check and verify the CN(Common Name) that you set.
-### The common name (CN) must match exactly the fully qualified domain name (FQDN) of the server. The client compares the CN with the DNS domain name to ensure that it is indeed connecting to the desired server, not a malicious one. The hostname of the server can also be specified in the Subject Alternative Name (SAN). Since the distinguished name is used as the server principal when SSL is used as the inter-broker security protocol, it is useful to have hostname as a SAN rather than the CN.
+The common name (CN) must match exactly the fully qualified domain name (FQDN) of the server. The client compares the CN with the DNS domain name to ensure that it is indeed connecting to the desired server, not a malicious one. The hostname of the server can also be specified in the Subject Alternative Name (SAN). Since the distinguished name is used as the server principal when SSL is used as the inter-broker security protocol, it is useful to have hostname as a SAN rather than the CN.
 
-### To show the CN or SAN in a signed certificate, run the command below:
+To show the CN or SAN in a signed certificate, run the command below:
 ```bash
 openssl x509 -noout -subject -in ca-signed-server
 ```
@@ -206,14 +210,14 @@ openssl x509 -noout -subject -in ca-signed-server
 <br/>
 
 # Broker Configuration server.properties file
-### Requires Kafka restart.
+Requires Kafka restart.
 
-### set this environment property to show SSL debug logs.
+set this environment property to show SSL debug logs.
 ```bash
 export KAFKA_OPTS=-Djavax.net.debug=all
 ```
 
-### Create a `ssl` directory in `KAFKA_HOME` so that you can utilize the make command at the end of this README. Place all of the jks files in that directory and set the path as a relative path in the properties below. (replace `<path>` with `ssl`)
+Create a `ssl` directory in `KAFKA_HOME` so that you can utilize the make command at the end of this README. Place all of the jks files in that directory and set the path as a relative path in the properties below. (replace `<path>` with `ssl`)
 
 ## server.properties
 ```properties
@@ -237,7 +241,7 @@ openssl s_client -connect <HOST_IP>:9093
 
 
 # Client Configuration client.properties file
-### Create a `client.properties` file in your `KAFKA_HOME/config` directory and add these configuration to `client.properties` file.
+Create a `client.properties` file in your `KAFKA_HOME/config` directory and add these configuration to `client.properties` file.
 ## client.properties
 
 ```properties
@@ -252,38 +256,38 @@ ssl.endpoint.identification.algorithm=
 ```
 
 
-### Host name verification of servers is enabled by default for client connections as well as inter-broker connections to prevent man-in-the-middle attacks. Server host name verification may be disabled by setting ssl.endpoint.identification.algorithm to an empty string. For example,
+Host name verification of servers is enabled by default for client connections as well as inter-broker connections to prevent man-in-the-middle attacks. Server host name verification may be disabled by setting ssl.endpoint.identification.algorithm to an empty string. For example,
 
 ```properties
 ssl.endpoint.identification.algorithm=
 ```
 <br/>
 
-### Start Zookeeper
+Start Zookeeper
 ```bash
 bin/zookeeper-server-start.sh config/zookeeper.properties
 ```
 <br/>
 
-### Start Broker
+Start Broker
 ```bash
 bin/kafka-server-start.sh config/server.properties
 ```
 <br/>
 
-### See list of all available Topics
+See list of all available Topics
 ```bash
 bin/kafka-topics.sh --bootstrap-server HOSTNAME:9093 --list
 ```
 <br/>
 
-### Create Topic
+Create Topic
 ```bash
 bin/kafka-topics.sh --bootstrap-server HOSTNAME:9093 --create --topic mytopic --partitions 2 --replication-factor 3
 ```
 <br/>
 
-### Describe a Topic
+Describe a Topic
 ```bash
 bin/kafka-topics.sh --bootstrap-server HOSTNAME:9093 --describe --topic my-topic
 ```
@@ -294,7 +298,7 @@ secureClientPort=2182
 ``` 
 <br/>
 
-### Send Messages.
+Send Messages.
 ```bash
 bin/kafka-console-producer.sh --broker-list HOSTNAME:9093 --topic mytopic --producer.config PATH_TO_THE_ABOVE_PROPERTIES
 ```
@@ -305,7 +309,7 @@ Once producer is started, your terminal would allow you to enter messages one by
 ```
 <br/>
 
-### Start Consumer to Recieve Messages
+Start Consumer to Recieve Messages
 ```bash
 bin/kafka-console-consumer.sh --bootstrap-server HOSTNAME:9093 --topic mytopic --consumer.config PATH_TO_THE_ABOVE_PROPERTIES
 ```
