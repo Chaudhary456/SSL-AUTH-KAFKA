@@ -98,49 +98,44 @@ flowchart TD;
 ```
 
 # Commands to generate SSL Certificates
+Create a directory `ssl` in your `KAFKA_HOME` directory and generate all the SSL certificates in this directory and set the path as a relative path in the server's and client's properties files as mentioned below.
 ## First generate Certificate Authority(CA), Truststore and Keystore
 Generate CA
 ```bash
 openssl req -new -x509 -keyout ca-key -out ca-cert -days 3650
 ```
-<br/>
 
 Create Truststore
 ```bash 
 keytool -keystore kafka.server.truststore.jks -alias ca-cert -import -file ca-cert
 ```
-<br/>
 
 Create Keystore
+<br/>
 `NOTE:` When you are asked to enter `FULL NAME` you must enter `hostname/dns`(in this example 'localhost').
 ```bash 
 keytool -keystore kafka.server.keystore.jks -alias server -validity 3650 -genkey -keyalg RSA -ext SAN=dns:localhost
 ```
-<br/>
 
 Create certificate signing request (CSR)
 ```bash 
 keytool -keystore kafka.server.keystore.jks -alias server -certreq -file ca-request-server
 ```
-<br/>
 
 Sign the CSR
 ```bash 
 openssl x509 -req -CA ca-cert -CAkey ca-key -in ca-request-server -out ca-signed-server -days 3650 -CAcreateserial
 ```
-<br/>
 
 Import the CA into Keystore
 ```bash 
 keytool -keystore kafka.server.keystore.jks -alias ca-cert -import -file ca-cert
 ```
-<br/>
 
 Import the signed certificate from step 5 into Keystore
 ```bash 
 keytool -keystore kafka.server.keystore.jks -alias server -import -file ca-signed-server
 ```
-<br/>
 
 `To generate keystore and truststore for client repeate above steps from 2-7, just replace 'server' with 'client'`.
 <br/>
@@ -177,8 +172,7 @@ Extract the private key from the PKCS12 file to a key_root.pem file:
 ```bash 
 openssl pkcs12 -in kafka.server.keystore.p12 -nocerts -nodes -out key_root.pem
 ```
-`NOTE`: 
-A direct way to crete key_root.pem could be this in some articles:
+`NOTE: A direct way to crete key_root.pem could be this in some articles:`
 ```bash
 openssl pkcs12 -in kafka.server.keystore.jks -nocerts -nodes -out key_root.pem
 ```
@@ -196,7 +190,6 @@ So better use the steps 3 and 4 to genaret key_root.pem.
 ```bash
 keytool -list -v -keystore kafka.server.keystore.jks
 ```
-<br/>
 
 ## Check and verify the CN(Common Name) that you set.
 The common name (CN) must match exactly the fully qualified domain name (FQDN) of the server. The client compares the CN with the DNS domain name to ensure that it is indeed connecting to the desired server, not a malicious one. The hostname of the server can also be specified in the Subject Alternative Name (SAN). Since the distinguished name is used as the server principal when SSL is used as the inter-broker security protocol, it is useful to have hostname as a SAN rather than the CN.
@@ -207,18 +200,8 @@ openssl x509 -noout -subject -in ca-signed-server
 ```
 
 
-<br/>
-
-# Broker Configuration server.properties file
-Requires Kafka restart.
-
-set this environment property to show SSL debug logs.
-```bash
-export KAFKA_OPTS=-Djavax.net.debug=all
-```
-
-Create a `ssl` directory in `KAFKA_HOME` so that you can utilize the make command at the end of this README. Place all of the jks files in that directory and set the path as a relative path in the properties below. (replace `<path>` with `ssl`)
-
+# Broker Configuration
+Open `server.properties` file in your `KAFKA_HOME/config` and add these configurations to this file.
 ## server.properties
 ```properties
 listeners=PLAINTEXT://0.0.0.0:9092,SSL://0.0.0.0:9093
@@ -240,7 +223,7 @@ openssl s_client -connect <HOST_IP>:9093
 ```
 
 
-# Client Configuration client.properties file
+# Client Configuration
 Create a `client.properties` file in your `KAFKA_HOME/config` directory and add these configuration to `client.properties` file.
 ## client.properties
 
