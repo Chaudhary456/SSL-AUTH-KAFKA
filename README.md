@@ -1,5 +1,5 @@
 # TLS/mTLS Configuration of Apache Kafka - SELF SIGNING FLOW
-## This is a step by step guide to integrate SSL/mTLS authentication for Kafka's Clients and Brokers.
+This is a step by step guide to integrate SSL/mTLS authentication for Kafka's Clients and Brokers.
 
 
 # Download Apache Kafka
